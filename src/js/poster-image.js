@@ -112,6 +112,10 @@ class PosterImage extends ClickableComponent {
       return;
     }
 
+    if (this.player_.tech(true)) {
+      this.player_.tech(true).focus();
+    }
+
     if (this.player_.paused()) {
       silencePromise(this.player_.play());
     } else {

@@ -126,13 +126,13 @@ export const getAbsoluteURL = function(url) {
  * @param    {string} path
  *           The fileName path like '/path/to/file.mp4'
  *
- * @returns  {string}
+ * @return  {string}
  *           The extension in lower case or an empty string if no
  *           extension could be found.
  */
 export const getFileExtension = function(path) {
   if (typeof path === 'string') {
-    const splitPathRe = /^(\/?)([\s\S]*?)((?:\.{1,2}|[^\/]+?)(\.([^\.\/\?]+)))(?:[\/]*|[\?].*)$/i;
+    const splitPathRe = /^(\/?)([\s\S]*?)((?:\.{1,2}|[^\/]+?)(\.([^\.\/\?]+)))(?:[\/]*|[\?].*)$/;
     const pathParts = splitPathRe.exec(path);
 
     if (pathParts) {

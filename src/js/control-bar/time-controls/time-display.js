@@ -4,11 +4,11 @@
 import document from 'global/document';
 import Component from '../../component.js';
 import * as Dom from '../../utils/dom.js';
-import {bind, throttle} from '../../utils/fn.js';
+import {bind, throttle, UPDATE_REFRESH_INTERVAL} from '../../utils/fn.js';
 import formatTime from '../../utils/format-time.js';
 
 /**
- * Displays the time left in the video
+ * Displays time information about the video
  *
  * @extends Component
  */
@@ -25,7 +25,7 @@ class TimeDisplay extends Component {
    */
   constructor(player, options) {
     super(player, options);
-    this.throttledUpdateContent = throttle(bind(this, this.updateContent), 25);
+    this.throttledUpdateContent = throttle(bind(this, this.updateContent), UPDATE_REFRESH_INTERVAL);
     this.on(player, 'timeupdate', this.throttledUpdateContent);
   }
 
@@ -35,18 +35,23 @@ class TimeDisplay extends Component {
    * @return {Element}
    *         The element that was created.
    */
-  createEl(plainName) {
+  createEl() {
     const className = this.buildCSSClass();
     const el = super.createEl('div', {
       className: `${className} vjs-time-control vjs-control`,
-      innerHTML: `<span class="vjs-control-text">${this.localize(this.labelText_)}\u00a0</span>`
+      innerHTML: `<span class="vjs-control-text" role="presentation">${this.localize(this.labelText_)}\u00a0</span>`
     });
 
     this.contentEl_ = Dom.createEl('span', {
       className: `${className}-display`
     }, {
       // tell screen readers not to automatically read the time as it changes
-      'aria-live': 'off'
+      'aria-live': 'off',
+      // span elements have no implicit role, but some screen readers (notably VoiceOver)
+      // treat them as a break between items in the DOM when using arrow keys
+      // (or left-to-right swipes on iOS) to read contents of a page. Using
+      // role='presentation' causes VoiceOver to NOT treat this span as a break.
+      'role': 'presentation'
     });
 
     this.updateTextNode_();

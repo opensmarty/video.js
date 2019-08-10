@@ -19,6 +19,7 @@ This document outlines many considerations for using Video.js for advanced playe
   * [React](#react)
   * [Ember](#ember)
   * [Angular](#angular)
+  * [Vue](#vue)
 
 ## Accessing a player that has already been created on a page
 
@@ -99,7 +100,7 @@ Example
 ```js
 var myPlayer = videojs('some-player-id');
 
-myPlayer.src('http://www.example.com/path/to/video.mp4');
+myPlayer.src({type: 'video/mp4', src: 'http://www.example.com/path/to/video.mp4'});
 myPlayer.ready(function() {
   // get
   var howLoudIsIt = myPlayer.volume();
@@ -113,7 +114,7 @@ Volume can also be muted (without actually changing the volume value) using the 
 ```js
 var myPlayer = videojs('some-player-id');
 
-myPlayer.src('http://www.example.com/path/to/video.mp4');
+myPlayer.src({type: 'video/mp4', src: 'http://www.example.com/path/to/video.mp4'});
 myPlayer.ready(function() {
   // get, should be false
   console.log(myPlayer.muted());
@@ -131,7 +132,7 @@ To check if the player is currently fullscreen call the `isFullscreen` function 
 ```js
 var myPlayer = videojs('some-player-id');
 
-myPlayer.src('http://www.example.com/path/to/video.mp4');
+myPlayer.src({type: 'video/mp4', src: 'http://www.example.com/path/to/video.mp4'});
 myPlayer.ready(function() {
   // get, should be false
   console.log(myPlayer.isFullscreen());
@@ -149,7 +150,7 @@ To request that the player enter fullscreen call `requestFullscreen`.
 ```js
 var myPlayer = videojs('some-player-id');
 
-myPlayer.src('http://www.example.com/path/to/video.mp4');
+myPlayer.src({type: 'video/mp4', src: 'http://www.example.com/path/to/video.mp4'});
 myPlayer.ready(function() {
   myPlayer.requestFullscreen();
 });
@@ -160,7 +161,7 @@ To exit fullscreen call `exitFullscreen`
 ```js
 var myPlayer = videojs('some-player-id');
 
-myPlayer.src('http://www.example.com/path/to/video.mp4');
+myPlayer.src({type: 'video/mp4', src: 'http://www.example.com/path/to/video.mp4'});
 myPlayer.ready(function() {
   myPlayer.requestFullscreen();
   myPlayer.exitFullscreen();
@@ -174,7 +175,7 @@ myPlayer.ready(function() {
 ```js
 var myPlayer = videojs('some-player-id');
 
-myPlayer.src('http://www.example.com/path/to/video.mp4');
+myPlayer.src({type: 'video/mp4', src: 'http://www.example.com/path/to/video.mp4'});
 myPlayer.ready(function() {
   myPlayer.play();
 });
@@ -185,7 +186,7 @@ myPlayer.ready(function() {
 ```js
 var myPlayer = videojs('some-player-id');
 
-myPlayer.src('http://www.example.com/path/to/video.mp4');
+myPlayer.src({type: 'video/mp4', src: 'http://www.example.com/path/to/video.mp4'});
 myPlayer.ready(function() {
   myPlayer.play();
   myPlayer.pause();
@@ -197,7 +198,7 @@ myPlayer.ready(function() {
 ```js
 var myPlayer = videojs('some-player-id');
 
-myPlayer.src('http://www.example.com/path/to/video.mp4');
+myPlayer.src({type: 'video/mp4', src: 'http://www.example.com/path/to/video.mp4'});
 
 myPlayer.ready(function() {
   // true
@@ -224,7 +225,7 @@ myPlayer.ready(function() {
 ```js
 var myPlayer = videojs('some-player-id');
 
-myPlayer.src('http://www.example.com/path/to/video.mp4');
+myPlayer.src({type: 'video/mp4', src: 'http://www.example.com/path/to/video.mp4'});
 myPlayer.ready(function() {
   // set current time to 2 minutes into the video
   myPlayer.currentTime(120);
@@ -239,7 +240,7 @@ myPlayer.ready(function() {
 ```js
 var myPlayer = videojs('some-player-id');
 
-myPlayer.src('http://www.example.com/path/to/video.mp4');
+myPlayer.src({type: 'video/mp4', src: 'http://www.example.com/path/to/video.mp4'});
 myPlayer.ready(function() {
   var lengthOfVideo = myPlayer.duration();
 });
@@ -249,7 +250,7 @@ myPlayer.ready(function() {
 
 ```js
 var myPlayer = videojs('some-player-id');
-myPlayer.src('http://www.example.com/path/to/video.mp4');
+myPlayer.src({type: 'video/mp4', src: 'http://www.example.com/path/to/video.mp4'});
 myPlayer.ready(function() {
    myPlayer.currentTime(10);
 
@@ -263,7 +264,7 @@ myPlayer.ready(function() {
 ```js
 var myPlayer = videojs('some-player-id');
 
-myPlayer.src('http://www.example.com/path/to/video.mp4');
+myPlayer.src({type: 'video/mp4', src: 'http://www.example.com/path/to/video.mp4'});
 myPlayer.ready(function() {
   var bufferedTimeRange = myPlayer.buffered();
 
@@ -288,7 +289,7 @@ myPlayer.ready(function() {
 ```js
 var myPlayer = videojs('some-player-id');
 
-myPlayer.src('http://www.example.com/path/to/video.mp4');
+myPlayer.src({type: 'video/mp4', src: 'http://www.example.com/path/to/video.mp4'});
 myPlayer.ready(function() {
   // example 0.11 aka 11%
   var howMuchIsDownloaded = myPlayer.bufferedPercent();
@@ -305,6 +306,8 @@ var myPlayer = videojs('some-player-id');
 myPlayer.src('http://www.example.com/path/to/video.mp4');
 ```
 
+When a string is provided as the source, Video.js will try to infer the video type from the file extension, but this inference will not work in all cases. It is recommended that the source is provided as an object including the type, as below.
+
 **Source Object (or element):** A javascript object containing information
 about the source file. Use this method if you want the player to determine if
 it can support the file using the type information.
@@ -312,7 +315,7 @@ it can support the file using the type information.
 ```js
 var myPlayer = videojs('some-player-id');
 
-myPlayer.src({type: "video/mp4", src: "http://www.example.com/path/to/video.mp4"});
+myPlayer.src({type: 'video/mp4', src: 'http://www.example.com/path/to/video.mp4'});
 ```
 
 **Array of Source Objects:** To provide multiple versions of the source so
@@ -324,9 +327,9 @@ file.
 var myPlayer = videojs('some-player-id');
 
 myPlayer.src([
-  {type: "video/mp4", src: "http://www.example.com/path/to/video.mp4"},
-  {type: "video/webm", src: "http://www.example.com/path/to/video.webm"},
-  {type: "video/ogg", src: "http://www.example.com/path/to/video.ogv"}
+  {type: 'video/mp4', src: 'http://www.example.com/path/to/video.mp4'},
+  {type: 'video/webm', src: 'http://www.example.com/path/to/video.webm'},
+  {type: 'video/ogg', src: 'http://www.example.com/path/to/video.ogv'}
 ]);
 ```
 
@@ -351,7 +354,7 @@ function on the player.
 ```js
 var myPlayer = videojs('some-player-id');
 
-myPlayer.src('http://www.example.com/path/to/video.mp4');
+myPlayer.src({type: 'video/mp4', src: 'http://www.example.com/path/to/video.mp4'});
 myPlayer.ready(function() {
    // tech() will error with no argument
    var tech = myPlayer.tech({IWillNotUseThisInPlugins: true});
@@ -371,3 +374,7 @@ See [ReactJS integration example](/docs/guides/react.md)
 ### Ember
 
 ### Angular
+
+### Vue
+
+See [Vue integration example](/docs/guides/vue.md)

@@ -11,7 +11,7 @@ import document from 'global/document';
 import window from 'global/window';
 import {assign} from '../utils/obj';
 import mergeOptions from '../utils/merge-options.js';
-import toTitleCase from '../utils/to-title-case.js';
+import {toTitleCase} from '../utils/string-cases.js';
 import {NORMAL as TRACK_TYPES} from '../tracks/track-types';
 import setupSourceset from './setup-sourceset';
 
@@ -657,6 +657,20 @@ class Html5 extends Tech {
    */
   exitFullScreen() {
     this.el_.webkitExitFullScreen();
+  }
+
+  /**
+   * Create a floating video window always on top of other windows so that users may
+   * continue consuming media while they interact with other content sites, or
+   * applications on their device.
+   *
+   * @see [Spec]{@link https://wicg.github.io/picture-in-picture}
+   *
+   * @return {Promise}
+   *         A promise with a Picture-in-Picture window.
+   */
+  requestPictureInPicture() {
+    return this.el_.requestPictureInPicture();
   }
 
   /**

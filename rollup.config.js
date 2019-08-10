@@ -30,8 +30,7 @@ const onwarn = (warning) => {
 
 const primedIgnore = ignore(['videojs-vtt.js']);
 const primedResolve = resolve({
-  jsnext: true,
-  main: true,
+  mainFields: ['jsnext:main', 'module', 'main'],
   browser: true
 });
 const primedCjs = commonjs({
@@ -88,9 +87,11 @@ const externals = {
     'mpd-parser',
     'mux.js',
     'mux.js/lib/mp4',
-    'mux.js/lib/tools/ts-inspector.js',
     'mux.js/lib/mp4/probe',
-    'aes-decrypter'
+    'mux.js/lib/tools/ts-inspector.js',
+    'mux.js/lib/tools/mp4-inspector',
+    'aes-decrypter',
+    'keycode'
   ]),
   test: Object.keys(globals.test).concat([
   ])

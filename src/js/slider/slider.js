@@ -5,6 +5,7 @@ import Component from '../component.js';
 import * as Dom from '../utils/dom.js';
 import {assign} from '../utils/obj';
 import {IS_CHROME} from '../utils/browser.js';
+import keycode from 'keycode';
 
 /**
  * The base functionality for a slider. Can be vertical or horizontal.
@@ -55,10 +56,10 @@ class Slider extends Component {
 
     this.on('mousedown', this.handleMouseDown);
     this.on('touchstart', this.handleMouseDown);
-    this.on('focus', this.handleFocus);
-    this.on('blur', this.handleBlur);
+    this.on('keydown', this.handleKeyDown);
     this.on('click', this.handleClick);
 
+    // TODO: deprecated, controlsvisible does not seem to be fired
     this.on(this.player_, 'controlsvisible', this.update);
 
     if (this.playerEvent) {
@@ -82,8 +83,7 @@ class Slider extends Component {
 
     this.off('mousedown', this.handleMouseDown);
     this.off('touchstart', this.handleMouseDown);
-    this.off('focus', this.handleFocus);
-    this.off('blur', this.handleBlur);
+    this.off('keydown', this.handleKeyDown);
     this.off('click', this.handleClick);
     this.off(this.player_, 'controlsvisible', this.update);
     this.off(doc, 'mousemove', this.handleMouseMove);
@@ -263,10 +263,10 @@ class Slider extends Component {
     const style = bar.el().style;
 
     // Set the new bar width or height
-    if (this.vertical()) {
-      style.height = percentage;
-    } else {
-      style.width = percentage;
+    const sizeKey = this.vertical() ? 'height' : 'width';
+
+    if (style[sizeKey] !== percentage) {
+      style[sizeKey] = percentage;
     }
 
     return progress;
@@ -293,18 +293,6 @@ class Slider extends Component {
   }
 
   /**
-   * Handle a `focus` event on this `Slider`.
-   *
-   * @param {EventTarget~Event} event
-   *        The `focus` event that caused this function to run.
-   *
-   * @listens focus
-   */
-  handleFocus() {
-    this.on(this.bar.el_.ownerDocument, 'keydown', this.handleKeyPress);
-  }
-
-  /**
    * Handle a `keydown` event on the `Slider`. Watches for left, rigth, up, and down
    * arrow keys. This function will only be called when the slider has focus. See
    * {@link Slider#handleFocus} and {@link Slider#handleBlur}.
@@ -314,30 +302,24 @@ class Slider extends Component {
    *
    * @listens keydown
    */
-  handleKeyPress(event) {
+  handleKeyDown(event) {
+
     // Left and Down Arrows
-    if (event.which === 37 || event.which === 40) {
+    if (keycode.isEventKey(event, 'Left') || keycode.isEventKey(event, 'Down')) {
       event.preventDefault();
+      event.stopPropagation();
       this.stepBack();
 
     // Up and Right Arrows
-    } else if (event.which === 38 || event.which === 39) {
+    } else if (keycode.isEventKey(event, 'Right') || keycode.isEventKey(event, 'Up')) {
       event.preventDefault();
+      event.stopPropagation();
       this.stepForward();
+    } else {
+
+      // Pass keydown handling up for unsupported keys
+      super.handleKeyDown(event);
     }
-  }
-
-  /**
-   * Handle a `blur` event on this `Slider`.
-   *
-   * @param {EventTarget~Event} event
-   *        The `blur` event that caused this function to run.
-   *
-   * @listens blur
-   */
-
-  handleBlur() {
-    this.off(this.bar.el_.ownerDocument, 'keydown', this.handleKeyPress);
   }
 
   /**
@@ -348,7 +330,7 @@ class Slider extends Component {
    *        Event that caused this object to run
    */
   handleClick(event) {
-    event.stopImmediatePropagation();
+    event.stopPropagation();
     event.preventDefault();
   }
 

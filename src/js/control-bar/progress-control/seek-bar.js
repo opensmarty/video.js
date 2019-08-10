@@ -8,6 +8,8 @@ import * as Dom from '../../utils/dom.js';
 import * as Fn from '../../utils/fn.js';
 import formatTime from '../../utils/format-time.js';
 import {silencePromise} from '../../utils/promise';
+import keycode from 'keycode';
+import document from 'global/document';
 
 import './load-progress-bar.js';
 import './play-progress-bar.js';
@@ -15,6 +17,9 @@ import './mouse-time-display.js';
 
 // The number of seconds the `step*` functions move the timeline.
 const STEP_SECONDS = 5;
+
+// The multiplier of STEP_SECONDS that PgUp/PgDown move the timeline.
+const PAGE_KEY_MULTIPLIER = 12;
 
 // The interval at which the bar should update as it progresses.
 const UPDATE_REFRESH_INTERVAL = 30;
@@ -51,26 +56,51 @@ class SeekBar extends Slider {
 
     this.on(this.player_, 'timeupdate', this.update);
     this.on(this.player_, 'ended', this.handleEnded);
+    this.on(this.player_, 'durationchange', this.update);
+    if (this.player_.liveTracker) {
+      this.on(this.player_.liveTracker, 'liveedgechange', this.update);
+    }
 
     // when playing, let's ensure we smoothly update the play progress bar
     // via an interval
     this.updateInterval = null;
 
-    this.on(this.player_, ['playing'], () => {
-      this.clearInterval(this.updateInterval);
+    this.on(this.player_, ['playing'], this.enableInterval_);
 
-      this.updateInterval = this.setInterval(() =>{
-        this.requestAnimationFrame(() => {
-          this.update();
-        });
-      }, UPDATE_REFRESH_INTERVAL);
-    });
+    this.on(this.player_, ['ended', 'pause', 'waiting'], this.disableInterval_);
 
-    this.on(this.player_, ['ended', 'pause', 'waiting'], () => {
-      this.clearInterval(this.updateInterval);
-    });
+    // we don't need to update the play progress if the document is hidden,
+    // also, this causes the CPU to spike and eventually crash the page on IE11.
+    if ('hidden' in document && 'visibilityState' in document) {
+      this.on(document, 'visibilitychange', this.toggleVisibility_);
+    }
+  }
 
-    this.on(this.player_, ['timeupdate', 'ended'], this.update);
+  toggleVisibility_(e) {
+    if (document.hidden) {
+      this.disableInterval_(e);
+    } else {
+      this.enableInterval_();
+
+      // we just switched back to the page and someone may be looking, so, update ASAP
+      this.requestAnimationFrame(this.update);
+    }
+  }
+
+  enableInterval_() {
+    this.clearInterval(this.updateInterval);
+
+    this.updateInterval = this.setInterval(() =>{
+      this.requestAnimationFrame(this.update);
+    }, UPDATE_REFRESH_INTERVAL);
+  }
+
+  disableInterval_(e) {
+    if (this.player_.liveTracker && this.player_.liveTracker.isLive() && e.type !== 'ended') {
+      return;
+    }
+
+    this.clearInterval(this.updateInterval);
   }
 
   /**
@@ -100,7 +130,12 @@ class SeekBar extends Slider {
    * @private
    */
   update_(currentTime, percent) {
-    const duration = this.player_.duration();
+    const liveTracker = this.player_.liveTracker;
+    let duration = this.player_.duration();
+
+    if (liveTracker && liveTracker.isLive()) {
+      duration = this.player_.liveTracker.liveCurrentTime();
+    }
 
     // machine readable value of progress bar (percentage complete)
     this.el_.setAttribute('aria-valuenow', (percent * 100).toFixed(2));
@@ -117,7 +152,9 @@ class SeekBar extends Slider {
     );
 
     // Update the `PlayProgressBar`.
-    this.bar.update(Dom.getBoundingClientRect(this.el_), percent);
+    if (this.bar) {
+      this.bar.update(Dom.getBoundingClientRect(this.el_), percent);
+    }
   }
 
   /**
@@ -132,6 +169,12 @@ class SeekBar extends Slider {
    *          The current percent at a number from 0-1
    */
   update(event) {
+    // if the offsetParent is null, then this element is hidden, in which case
+    // we don't need to update it.
+    if (this.el().offsetParent === null) {
+      return;
+    }
+
     const percent = super.update();
 
     this.update_(this.getCurrentTime_(), percent);
@@ -173,7 +216,20 @@ class SeekBar extends Slider {
    *         The percentage of media played so far (0 to 1).
    */
   getPercent() {
-    const percent = this.getCurrentTime_() / this.player_.duration();
+    const currentTime = this.getCurrentTime_();
+    let percent;
+    const liveTracker = this.player_.liveTracker;
+
+    if (liveTracker && liveTracker.isLive()) {
+      percent = (currentTime - liveTracker.seekableStart()) / liveTracker.liveWindow();
+
+      // prevent the percent from changing at the live edge
+      if (liveTracker.atLiveEdge()) {
+        percent = 1;
+      }
+    } else {
+      percent = currentTime / this.player_.duration();
+    }
 
     return percent >= 1 ? 1 : (percent || 0);
   }
@@ -213,12 +269,40 @@ class SeekBar extends Slider {
     if (!Dom.isSingleLeftClick(event)) {
       return;
     }
+    let newTime;
+    const distance = this.calculateDistance(event);
+    const liveTracker = this.player_.liveTracker;
 
-    let newTime = this.calculateDistance(event) * this.player_.duration();
+    if (!liveTracker || !liveTracker.isLive()) {
+      newTime = distance * this.player_.duration();
 
-    // Don't let video end while scrubbing.
-    if (newTime === this.player_.duration()) {
-      newTime = newTime - 0.1;
+      // Don't let video end while scrubbing.
+      if (newTime === this.player_.duration()) {
+        newTime = newTime - 0.1;
+      }
+    } else {
+      const seekableStart = liveTracker.seekableStart();
+      const seekableEnd = liveTracker.liveCurrentTime();
+
+      newTime = seekableStart + (distance * liveTracker.liveWindow());
+
+      // Don't let video end while scrubbing.
+      if (newTime >= seekableEnd) {
+        newTime = seekableEnd;
+      }
+
+      // Compensate for precision differences so that currentTime is not less
+      // than seekable start
+      if (newTime <= seekableStart) {
+        newTime = seekableStart + 0.1;
+      }
+
+      // On android seekableEnd can be Infinity sometimes,
+      // this will cause newTime to be Infinity, which is
+      // not a valid currentTime.
+      if (newTime === Infinity) {
+        return;
+      }
     }
 
     // Set new time (tell player to seek to new time)
@@ -308,24 +392,51 @@ class SeekBar extends Slider {
   }
 
   /**
-   * Called when this SeekBar has focus and a key gets pressed down. By
-   * default it will call `this.handleAction` when the key is space or enter.
+   * Called when this SeekBar has focus and a key gets pressed down.
+   * Supports the following keys:
+   *
+   *   Space or Enter key fire a click event
+   *   Home key moves to start of the timeline
+   *   End key moves to end of the timeline
+   *   Digit "0" through "9" keys move to 0%, 10% ... 80%, 90% of the timeline
+   *   PageDown key moves back a larger step than ArrowDown
+   *   PageUp key moves forward a large step
    *
    * @param {EventTarget~Event} event
    *        The `keydown` event that caused this function to be called.
    *
    * @listens keydown
    */
-  handleKeyPress(event) {
-
-    // Support Space (32) or Enter (13) key operation to fire a click event
-    if (event.which === 32 || event.which === 13) {
+  handleKeyDown(event) {
+    if (keycode.isEventKey(event, 'Space') || keycode.isEventKey(event, 'Enter')) {
       event.preventDefault();
+      event.stopPropagation();
       this.handleAction(event);
-    } else if (super.handleKeyPress) {
+    } else if (keycode.isEventKey(event, 'Home')) {
+      event.preventDefault();
+      event.stopPropagation();
+      this.player_.currentTime(0);
+    } else if (keycode.isEventKey(event, 'End')) {
+      event.preventDefault();
+      event.stopPropagation();
+      this.player_.currentTime(this.player_.duration());
+    } else if (/^[0-9]$/.test(keycode(event))) {
+      event.preventDefault();
+      event.stopPropagation();
+      const gotoFraction = (keycode.codes[keycode(event)] - keycode.codes['0']) * 10.0 / 100.0;
 
-      // Pass keypress handling up for unsupported keys
-      super.handleKeyPress(event);
+      this.player_.currentTime(this.player_.duration() * gotoFraction);
+    } else if (keycode.isEventKey(event, 'PgDn')) {
+      event.preventDefault();
+      event.stopPropagation();
+      this.player_.currentTime(this.player_.currentTime() - (STEP_SECONDS * PAGE_KEY_MULTIPLIER));
+    } else if (keycode.isEventKey(event, 'PgUp')) {
+      event.preventDefault();
+      event.stopPropagation();
+      this.player_.currentTime(this.player_.currentTime() + (STEP_SECONDS * PAGE_KEY_MULTIPLIER));
+    } else {
+      // Pass keydown handling up for unsupported keys
+      super.handleKeyDown(event);
     }
   }
 }
@@ -348,13 +459,6 @@ SeekBar.prototype.options_ = {
 if (!IS_IOS && !IS_ANDROID) {
   SeekBar.prototype.options_.children.splice(1, 0, 'mouseTimeDisplay');
 }
-
-/**
- * Call the update event for this Slider when this event happens on the player.
- *
- * @type {string}
- */
-SeekBar.prototype.playerEvent = 'timeupdate';
 
 Component.registerComponent('SeekBar', SeekBar);
 export default SeekBar;

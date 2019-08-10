@@ -4,6 +4,8 @@
 import ClickableComponent from '../clickable-component.js';
 import Component from '../component.js';
 import {assign} from '../utils/obj';
+import {MenuKeys} from './menu-keys.js';
+import keycode from 'keycode';
 
 /**
  * The component for a menu item. `<li>`
@@ -66,6 +68,22 @@ class MenuItem extends ClickableComponent {
       innerHTML: `<span class="vjs-menu-item-text">${this.localize(this.options_.label)}</span>`,
       tabIndex: -1
     }, props), attrs);
+  }
+
+  /**
+   * Ignore keys which are used by the menu, but pass any other ones up. See
+   * {@link ClickableComponent#handleKeyDown} for instances where this is called.
+   *
+   * @param {EventTarget~Event} event
+   *        The `keydown` event that caused this function to be called.
+   *
+   * @listens keydown
+   */
+  handleKeyDown(event) {
+    if (!MenuKeys.some((key) => keycode.isEventKey(event, key))) {
+      // Pass keydown handling up for unused keys
+      super.handleKeyDown(event);
+    }
   }
 
   /**
